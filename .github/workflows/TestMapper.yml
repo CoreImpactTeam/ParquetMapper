@@ -1,0 +1,135 @@
+name: Run Tests
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - main
+      - dev/*
+
+jobs:
+  test:
+    name: "Test on ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+
+      - name: Restore Dependencies
+        run: dotnet restore src/ParquetMapper.sln
+
+      - name: Run Tests
+        run: dotnet test src/ParquetMapper.sln -c Release
+
+  merge:
+    name: Merge to Main if Versions Allow
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Main Branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Get Version from Main Branch
+        id: main_version
+        shell: bash
+        run: |
+          git fetch origin main --depth=1
+          MAIN_VERSION=$(git show origin/main:src/ParquetMapper/ParquetMapper.csproj | grep -oPm1 "(?<=<Version>)[^<]+")
+          
+          MAIN_NUMERIC=${MAIN_VERSION#preview-}
+          echo "main_numeric=$MAIN_NUMERIC" >> $GITHUB_OUTPUT
+
+      - name: Get Version from Feature Branch
+        id: feature_version
+        shell: bash
+        env:
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          git fetch origin "$BRANCH_NAME" --depth=1
+          FEATURE_VERSION=$(git show origin/${BRANCH_NAME}:src/ParquetMapper/ParquetMapper.csproj | grep -oPm1 "(?<=<Version>)[^<]+")
+          FEATURE_NUMERIC=${FEATURE_VERSION#preview-}
+          echo "feature_numeric=$FEATURE_NUMERIC" >> $GITHUB_OUTPUT
+
+      - name: Compare and Merge Versions
+        shell: bash
+        env:
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MAIN=${{ steps.main_version.outputs.main_numeric }}
+          FEATURE=${{ steps.feature_version.outputs.feature_numeric }}
+          echo "Main version: $MAIN; Feature version: $FEATURE"
+          if dpkg --compare-versions "$FEATURE" ge "$MAIN"; then
+            git config --global user.name "GitHub Actions"
+            git config --global user.email "actions@github.com"
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            git fetch origin "$BRANCH_NAME" --depth=1
+            git checkout main
+            git merge --no-ff --allow-unrelated-histories -X theirs "origin/$BRANCH_NAME" -m "Auto merge: merging $BRANCH_NAME into main"
+            git push origin main
+          else
+            echo "Feature version $FEATURE is lower than main version $MAIN"
+            exit 1
+          fi
+
+  publish:
+    name: Publish NuGet
+    # Публикация происходит только, если тесты и merge завершились успешно
+    needs: [test, merge]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+
+      - name: Restore Dependencies
+        run: dotnet restore src/ParquetMapper.sln
+
+      - name: Build Solution
+        run: dotnet build src/ParquetMapper.sln --configuration Release --no-restore
+
+      - name: Pack NuGet Package
+        run: dotnet pack src/ParquetMapper.sln --configuration Release --no-build --output ./nupkg
+
+      - name: Publish NuGet Package
+        run: |
+          for package in ./nupkg/*.nupkg; do
+            dotnet nuget push "$package" \
+              --api-key "${{ secrets.NUGET_API_KEY }}" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          done
