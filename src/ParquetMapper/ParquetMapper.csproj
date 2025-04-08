@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<Nullable>enable</Nullable>
+		<SignAssembly>False</SignAssembly>
+		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+		<Version>8.0.1-preview</Version>
+		<TargetFramework>net8.0</TargetFramework>
+		<Title>IgnoreImpact.$(AssemblyName)</Title>
+		<Authors>IgnoreImpact</Authors>
+		<Copyright>MIT</Copyright>
+		<Description>Generic mapper for a parquet files.</Description>
+		<PackageProjectUrl>https://github.com/IgnoreImpact/ParquetMapper</PackageProjectUrl>
+		<PackageIcon>LSM-logo.png</PackageIcon>
+		<RepositoryUrl>https://github.com/IgnoreImpact/ParquetMapper</RepositoryUrl>
+		<PackageTags>parquet, mapping</PackageTags>
+		<PackageId>IgnoreImpact.$(AssemblyName)</PackageId>
+	</PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="Extensions\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Parquet.Net" Version="5.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="LSM-logo.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>
