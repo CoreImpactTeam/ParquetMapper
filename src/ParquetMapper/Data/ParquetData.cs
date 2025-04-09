@@ -1,4 +1,8 @@
-﻿using System;
+﻿using Parquet.Meta;
+using Parquet.Schema;
+using ParquetMapper.Exceptions;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,15 +13,24 @@ namespace ParquetMapper.Data
     public class ParquetData<TDataType>
     {
         private TDataType[][] _data;
-        private uint _batchCount;
-        public uint BatchCount => _batchCount;
-        public IAsyncEnumerable<TDataType> DataStream { get; set; } 
-        public TDataType[] this[int i]
+        private int _rowGroupCount;
+        private ParquetSchema _schema;
+        private FileMetaData _metadata;
+        private Dictionary<string, string> _customMetadata;
+
+        public int RowGroupCount => _rowGroupCount;
+        public ParquetSchema Schema => _schema;
+        public FileMetaData Metadata => _metadata;
+        public Dictionary<string, string> CustomMetadata => _customMetadata;
+        public TDataType[] this[int rowGroup]
         {
             get
             {
-                // TODO
-                return _data[i];
+                if (rowGroup > _rowGroupCount)
+                {
+                    throw new OutOfRowGroupRangeException(this);
+                }
+                return _data[rowGroup];
             }
         }
     }
