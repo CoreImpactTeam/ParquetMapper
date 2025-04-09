@@ -3,6 +3,7 @@ using Parquet;
 using Parquet.Data;
 using Parquet.Schema;
 using ParquetMapper.Attributes;
+using ParquetMapper.Data;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -93,6 +94,21 @@ namespace IgnoreImpact.ParquetMapper
                     await group.WriteColumnAsync(dataColumn);
                 }
             }
+        }
+
+        public Task WriteToParquetFileAsync<TDataType>(IEnumerable<TDataType> data, string path, int rowGroupSize = 1024, CancellationToken cancellationToken = default) where TDataType : new()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<ParquetData<TDataType>> ReadParquetAsync<TDataType>(string path, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IAsyncEnumerable<TDataType> ReadParquetAsAsyncEnumerable<TDataType>(string path, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 }
