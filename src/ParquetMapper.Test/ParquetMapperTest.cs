@@ -30,5 +30,20 @@ namespace IgnoreImpact.ParquetMapper.Test
 
             //Assert.True(result);
         }
+        [Fact]
+        public void Test_Read_Parqut_File()
+        {
+            // TODO
+        }
+        [Fact]
+        public void Test_Write_Parqut_File()
+        {
+            // TODO
+        }
+        [Fact]
+        public void Throw_IncompatibleSchemaTypeException()
+        {
+            // TODO
+        }
     }
 }

@@ -19,6 +19,7 @@ namespace ParquetMapper.Test.Attributes.TestTypes
         {
             public int Property1 { get; set; }
             [HasParquetColName(null)]
+            [IgnoreProperty]
             public string Property2 { get; set; }
         }
     }

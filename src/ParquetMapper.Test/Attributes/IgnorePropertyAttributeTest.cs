@@ -1,6 +1,7 @@
 ﻿using IgnoreImpact.ParquetMapper.Interfaces;
 using Newtonsoft.Json.Linq;
 using Parquet.Schema;
+using ParquetMapper.Exceptions;
 using ParquetMapper.Test;
 using ParquetMapper.Test.Attributes.TestData;
 using ParquetMapper.Test.Attributes.TestTypes;
@@ -37,7 +38,12 @@ namespace IgnoreImpact.ParquetMapper.Test.Attributes
 
             var result = _parquetMapper.CreateParquetSchema(type);
 
-            Assert.Throws<Exception>(() => CreateParquetSchema(type));
+            Assert.Equal(result, expected);
+        }
+        [Fact]
+        public void Throw_NullColNameException()
+        {
+            Assert.Throws<NullColNameException>(() => _parquetMapper.CreateParquetSchema(typeof(NullColNameTestType)));
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Parquet.Schema;
 using ParquetMapper.Attributes;
+using ParquetMapper.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,7 +55,7 @@ namespace ParquetMapper.Test
                         if (string.IsNullOrEmpty(temp.ColName))
                         {
                             // TODO: create 'NullColNameException'
-                            throw new Exception();
+                            throw new NullColNameException();
                         }
 
                         propertyName = temp.ColName;
