@@ -31,12 +31,14 @@ namespace IgnoreImpact.ParquetMapper.Test
             //Assert.True(result);
         }
         [Fact]
-        public void Test_Read_Parqut_File()
+        public async Task Test_Read_Parquet_File()
         {
-            // TODO
+            var test = await ReadParquetAsync<TestType>("../../../data/test-00000-of-00001.parquet");
+
+            Assert.Equal(test, test);
         }
         [Fact]
-        public void Test_Write_Parqut_File()
+        public void Test_Write_Parquet_File()
         {
             // TODO
         }
@@ -44,6 +46,14 @@ namespace IgnoreImpact.ParquetMapper.Test
         public void Throw_IncompatibleSchemaTypeException()
         {
             // TODO
+        }
+        internal class TestType
+        {
+            public string task_id { get; set; } 
+            public string prompt { get; set; }
+            public string canonical_solution { get; set; }
+            public string test { get; set; }
+            public string entry_point { get; set; }
         }
     }
 }
