@@ -68,6 +68,11 @@ namespace ParquetMapper.Test
                             {
                                 var prop = type.GetProperty(column.Field.Name);
 
+                                if (prop == null)
+                                {
+                                    continue;
+                                }
+
                                 for (int rowIterator = 0; rowIterator < column.Data.Length; rowIterator++)
                                 {
                                     prop.SetValue(result[i][rowIterator], column.Data.GetValue(rowIterator));

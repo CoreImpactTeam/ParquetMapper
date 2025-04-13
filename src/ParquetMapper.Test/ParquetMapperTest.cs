@@ -47,9 +47,10 @@ namespace IgnoreImpact.ParquetMapper.Test
         {
             // TODO
         }
+        [IgnoreCasing]
         internal class TestType
         {
-            public string task_id { get; set; } 
+            public string TaskId { get; set; } 
             public string prompt { get; set; }
             public string canonical_solution { get; set; }
             public string test { get; set; }
