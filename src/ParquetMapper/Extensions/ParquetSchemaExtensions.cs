@@ -1,5 +1,6 @@
 ﻿using Parquet.Schema;
 using ParquetMapper.Attributes;
+using ParquetMapper.Enums;
 using ParquetMapper.Exceptions;
 using System;
 using System.Collections.Generic;
@@ -18,17 +19,17 @@ namespace ParquetMapper.Extensions
 
             return parquetSchema.CompareSchema(type);
         }
-        public static bool CompareSchema(this ParquetSchema parquetSchema, Type type)
+        public static bool CompareSchema(this ParquetSchema parquetSchema, Type type) // MUST RETURN Dictionary<DataField, PropertyInfo>
         {
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
             var nullabilityContext = new NullabilityInfoContext();
 
-            var hasIgnoreCasing = type.GetCustomAttribute<IgnoreCasingAttribute>() is null ? true : false;
+            var ignoreCasingAttribute = type.GetCustomAttribute<IgnoreCasingAttribute>();
 
             bool isValid = properties.All(prop =>
             {
-                var isNullableProp = nullabilityContext.Create(prop).WriteState == NullabilityState.Nullable ? true : false;
+                var isNullableProp = nullabilityContext.Create(prop).WriteState == NullabilityState.Nullable;
 
                 var isIgnorePropAttr = prop.GetCustomAttribute<IgnorePropertyAttribute>() != null ? true : false;
 
@@ -37,7 +38,7 @@ namespace ParquetMapper.Extensions
                     return true;
                 }
 
-                var field = CompareWithAttributes(parquetSchema.DataFields, prop, hasIgnoreCasing);
+                var field = CompareWithAttributes(parquetSchema.DataFields, prop, ignoreCasingAttribute);
 
                 if (field == null)
                 {
@@ -54,7 +55,7 @@ namespace ParquetMapper.Extensions
 
             return isValid;
         }
-        private static DataField? CompareWithAttributes(DataField[] dataFields, PropertyInfo property, bool hasIgnoreCasing = false)
+        private static DataField? CompareWithAttributes(DataField[] dataFields, PropertyInfo property, IgnoreCasingAttribute? ignoreCasingAttribute = null)
         {
 
             return dataFields.FirstOrDefault(dataField =>
@@ -67,8 +68,31 @@ namespace ParquetMapper.Extensions
                     propertyName = colNameAttribute.ColName;
                 }
 
-                if (hasIgnoreCasing || property.GetCustomAttribute<IgnoreCasingAttribute>() is IgnoreCasingAttribute)
+
+                ignoreCasingAttribute ??= property.GetCustomAttribute<IgnoreCasingAttribute>();
+
+                if (ignoreCasingAttribute != null)
                 {
+                    foreach (var flag in ignoreCasingAttribute.FilterFlags.GetActiveFlags())
+                    {
+                        switch (flag)
+                        {
+                            case FilterFlags.Hyphen:
+                                fieldName = fieldName.Replace("-", "");
+                                propertyName = propertyName.Replace("-", "");
+                                break;
+
+                            case FilterFlags.Underscore:
+                                fieldName = fieldName.Replace("_", "");
+                                propertyName = propertyName.Replace("_", "");
+                                break;
+
+                            case FilterFlags.Space:
+                                fieldName = fieldName.Replace(" ", "");
+                                propertyName = propertyName.Replace(" ", "");
+                                break;
+                        }
+                    }
                     fieldName = fieldName.ToLower();
                     propertyName = propertyName.ToLower();
                 }
