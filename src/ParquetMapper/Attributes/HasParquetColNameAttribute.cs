@@ -9,7 +9,7 @@ namespace ParquetMapper.Attributes
     [AttributeUsage(AttributeTargets.Property)]
     public class HasParquetColNameAttribute : Attribute
     {
-        public string ColName { get; set; }
+        public string ColName { get; }
         public HasParquetColNameAttribute(string name)
         {
             ColName = name;

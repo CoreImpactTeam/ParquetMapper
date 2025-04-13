@@ -9,7 +9,7 @@ namespace ParquetMapper.Attributes
     [AttributeUsage(AttributeTargets.Property)]
     public class IgnorePropertyAttribute : Attribute
     {
-        public bool IsPropertyIgnored { get; set; }
+        public bool IsPropertyIgnored { get; }
         public IgnorePropertyAttribute(bool isPropertyIgnored = true)
         {
             IsPropertyIgnored = isPropertyIgnored;

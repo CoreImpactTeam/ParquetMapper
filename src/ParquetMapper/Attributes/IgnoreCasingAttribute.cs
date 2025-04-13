@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ParquetMapper.Enums;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,5 +10,10 @@ namespace ParquetMapper.Attributes
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property)]
     public class IgnoreCasingAttribute : Attribute
     {
+        public FilterFlags FilterFlags { get; }
+        public IgnoreCasingAttribute(FilterFlags filterFlags = FilterFlags.Hyphen | FilterFlags.Underscore)
+        {
+            FilterFlags = filterFlags;
+        }
     }
 }
