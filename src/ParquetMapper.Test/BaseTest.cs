@@ -6,6 +6,7 @@ using ParquetMapper.Exceptions;
 using ParquetMapper.Extensions;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -45,11 +46,12 @@ namespace ParquetMapper.Test
             {
                 using (var parquetReader = await ParquetReader.CreateAsync(fileStream))
                 {
-                    // Получаем информацию о данных: какие столбцы присутствуют
-                    if (parquetReader.Schema.CompareSchema<TDataType>())
-                    {
-                        var type = typeof(TDataType);
+                    Stopwatch sw = new();
 
+                    var dict = parquetReader.Schema.CompareSchema<TDataType>();
+
+                    if (dict != null)
+                    {
                         TDataType[][] result = new TDataType[parquetReader.RowGroupCount][];
 
                         for (int i = 0; i < parquetReader.RowGroupCount; i++)
@@ -66,7 +68,7 @@ namespace ParquetMapper.Test
 
                             foreach (var column in rowGroup)
                             {
-                                var prop = type.GetProperty(column.Field.Name);
+                                dict.TryGetValue(column.Field.Name, out var prop);
 
                                 if (prop == null)
                                 {
