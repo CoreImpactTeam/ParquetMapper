@@ -13,47 +13,45 @@ namespace ParquetMapper.Extensions
 {
     public static class ParquetSchemaExtensions
     {
-        public static bool CompareSchema<TDataType>(this ParquetSchema parquetSchema) where TDataType : new()
+        public static Dictionary<string, PropertyInfo> CompareSchema<TDataType>(this ParquetSchema parquetSchema) where TDataType : new()
         {
             var type = new TDataType().GetType();
 
             return parquetSchema.CompareSchema(type);
         }
-        public static bool CompareSchema(this ParquetSchema parquetSchema, Type type) // MUST RETURN Dictionary<DataField, PropertyInfo>
+        public static Dictionary<string, PropertyInfo> CompareSchema(this ParquetSchema parquetSchema, Type type)
         {
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-
             var nullabilityContext = new NullabilityInfoContext();
+            var typeIgnoreCasingAttribute = type.GetCustomAttribute<IgnoreCasingAttribute>();
+            var matchingFields = new Dictionary<string, PropertyInfo>();
 
-            var ignoreCasingAttribute = type.GetCustomAttribute<IgnoreCasingAttribute>();
-
-            bool isValid = properties.All(prop =>
+            foreach (var prop in properties)
             {
                 var isNullableProp = nullabilityContext.Create(prop).WriteState == NullabilityState.Nullable;
+                var isIgnorePropAttr = prop.GetCustomAttribute<IgnorePropertyAttribute>() != null;
 
-                var isIgnorePropAttr = prop.GetCustomAttribute<IgnorePropertyAttribute>() != null ? true : false;
-
-                if (isNullableProp | isIgnorePropAttr)
+                if (isNullableProp || isIgnorePropAttr)
                 {
-                    return true;
+                    continue;
                 }
 
-                var field = CompareWithAttributes(parquetSchema.DataFields, prop, ignoreCasingAttribute);
+                var field = CompareWithAttributes(parquetSchema.DataFields, prop, typeIgnoreCasingAttribute);
 
-                if (field == null)
+                if (field != null && field.ClrType == prop.PropertyType) // review the condition
                 {
-                    return false;
+                    matchingFields.Add(field.Name, prop);
                 }
+            }
 
-                return field.ClrType == prop.PropertyType;
-            });
-
-            if (!isValid)
+            if (matchingFields.Count != properties.Count(prop => // review the condition
+                    nullabilityContext.Create(prop).WriteState != NullabilityState.Nullable &&
+                    prop.GetCustomAttribute<IgnorePropertyAttribute>() == null))
             {
                 throw new IncompatibleSchemaTypeException(parquetSchema, type);
             }
 
-            return isValid;
+            return matchingFields;
         }
         private static DataField? CompareWithAttributes(DataField[] dataFields, PropertyInfo property, IgnoreCasingAttribute? ignoreCasingAttribute = null)
         {
