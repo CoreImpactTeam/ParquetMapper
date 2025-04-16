@@ -11,7 +11,7 @@ namespace ParquetMapper.Attributes
     public class IgnoreCasingAttribute : Attribute
     {
         public FilterFlags FilterFlags { get; }
-        public IgnoreCasingAttribute(FilterFlags filterFlags = FilterFlags.Hyphen | FilterFlags.Underscore)
+        public IgnoreCasingAttribute(FilterFlags filterFlags = FilterFlags.Hyphen | FilterFlags.Underscore | FilterFlags.Space)
         {
             FilterFlags = filterFlags;
         }
