@@ -19,6 +19,9 @@ namespace ParquetMapper.Extensions
 
             return parquetSchema.CompareSchema(type);
         }
+
+        // вернуть старую версию `... bool CompareSchema(...)`
+
         public static Dictionary<string, PropertyInfo> CompareSchema(this ParquetSchema parquetSchema, Type type)
         {
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
@@ -63,9 +66,8 @@ namespace ParquetMapper.Extensions
 
                 if (property.GetCustomAttribute<HasParquetColNameAttribute>() is HasParquetColNameAttribute colNameAttribute)
                 {
-                    propertyName = colNameAttribute.ColName;
+                    propertyName = colNameAttribute.ColName ?? throw new NullColNameException();
                 }
-
 
                 ignoreCasingAttribute ??= property.GetCustomAttribute<IgnoreCasingAttribute>();
 
