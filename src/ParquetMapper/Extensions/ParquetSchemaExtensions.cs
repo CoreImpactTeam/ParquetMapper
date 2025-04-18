@@ -19,8 +19,25 @@ namespace ParquetMapper.Extensions
 
             return parquetSchema.CompareSchema(type);
         }
+        public static bool IsSchemaCompatible<TDataType>(this ParquetSchema parquetSchema) where TDataType : new()
+        {
+            var type = new TDataType().GetType();
 
-        // вернуть старую версию `... bool CompareSchema(...)`
+            return parquetSchema.IsSchemaCompatible(type);
+        }
+
+        public static bool IsSchemaCompatible(this ParquetSchema parquetSchema, Type type)
+        {
+            try
+            {
+                CompareSchema(parquetSchema, type);
+                return true;
+            }
+            catch (IncompatibleSchemaTypeException)
+            {
+                return false;
+            }
+        }
 
         public static Dictionary<string, PropertyInfo> CompareSchema(this ParquetSchema parquetSchema, Type type)
         {
