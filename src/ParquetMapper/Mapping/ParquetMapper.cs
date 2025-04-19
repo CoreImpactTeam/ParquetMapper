@@ -4,18 +4,22 @@ using Parquet.Data;
 using Parquet.Schema;
 using ParquetMapper.Attributes;
 using ParquetMapper.Data;
+using ParquetMapper.Exceptions;
+using ParquetMapper.Extensions;
+using ParquetMapper.Mapping.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace IgnoreImpact.ParquetMapper
 {
-    public class ParquetMapper : IParquetMapper
+    public class ParquetMapper : IParquetMapper, IParquetWriter, IParquetReader
     {
         public async Task WriteToParquetFileAsync<TDataType>(IAsyncEnumerable<TDataType> data, string path, int batchSize = 1024, CancellationToken cancellationToken = default) where TDataType : new()
         {
@@ -23,7 +27,7 @@ namespace IgnoreImpact.ParquetMapper
             var parquetSchema = CreateParquetSchema<TDataType>();
             using (Stream stream = File.Create(path))
             {
-                using (ParquetWriter writer = await ParquetWriter.CreateAsync(parquetSchema, stream, cancellationToken: cancellationToken))
+                using (ParquetWriter writer = await ParquetWriter.CreateAsync(parquetSchema, stream, cancellationToken: cancellationToken)) // must be 'await using'
                 {
                     await foreach (var item in data)
                     {
@@ -75,7 +79,7 @@ namespace IgnoreImpact.ParquetMapper
 
             return new ParquetSchema(dataFields);
         }
-        private async Task WriteBatch<T>(ParquetWriter writer, IEnumerable<T> batch, ParquetSchema schema)
+        protected async Task WriteBatch<T>(ParquetWriter writer, IEnumerable<T> batch, ParquetSchema schema)
         {
             Type elementType = typeof(T);
             var properties = elementType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
@@ -106,9 +110,51 @@ namespace IgnoreImpact.ParquetMapper
             throw new NotImplementedException();
         }
 
-        public IAsyncEnumerable<TDataType> ReadParquetAsAsyncEnumerable<TDataType>(string path, CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<TDataType[]> ReadParquetAsAsyncEnumerable<TDataType>(string path, [EnumeratorCancellation] CancellationToken cancellationToken = default) where TDataType : new()
         {
-            throw new NotImplementedException();
+            using (Stream fileStream = File.OpenRead(path))
+            {
+                using (var parquetReader = await ParquetReader.CreateAsync(fileStream))
+                {
+
+                    var dict = parquetReader.Schema.CompareSchema<TDataType>();
+
+                    if (dict.Count == 0)
+                    {
+                        throw new IncompatibleSchemaTypeException(parquetReader.Schema, typeof(TDataType));
+                    }
+
+                    long rowsCount = parquetReader.Metadata.NumRows / parquetReader.RowGroupCount;
+                    TDataType[] result = new TDataType[rowsCount];
+
+                    for (int i = 0; i < rowsCount; i++)
+                    {
+                        result[i] = new();
+                    }
+
+                    for (int i = 0; i < parquetReader.RowGroupCount; i++)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        var rowGroup = await parquetReader.ReadEntireRowGroupAsync(i);
+
+                        int rowGroupLength = rowGroup.First().Data.Length;
+
+                        for (int row = 0; row < rowGroupLength; row++)
+                        {
+                            foreach (var column in rowGroup)
+                            {
+                                if (dict.TryGetValue(column.Field.Name, out var prop))
+                                {
+                                    prop.SetValue(result[row], column.Data.GetValue(row));
+                                }
+                            }
+                        }
+
+                        yield return result.Take(rowGroupLength).ToArray();
+                    }
+                }
+            }
         }
     }
 }
