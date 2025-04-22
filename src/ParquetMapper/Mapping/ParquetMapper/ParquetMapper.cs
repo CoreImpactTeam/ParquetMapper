@@ -1,12 +1,11 @@
-﻿using IgnoreImpact.ParquetMapper.Interfaces;
-using Parquet;
+﻿using Parquet;
 using Parquet.Data;
 using Parquet.Schema;
+using ParquetMapper.Abstractions;
 using ParquetMapper.Attributes;
 using ParquetMapper.Data;
 using ParquetMapper.Exceptions;
 using ParquetMapper.Extensions;
-using ParquetMapper.Mapping.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,7 +16,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace IgnoreImpact.ParquetMapper
+namespace ParquetMapper.Mapping.ParquetMapper
 {
     public class ParquetMapper : IParquetMapper, IParquetWriter, IParquetReader
     {

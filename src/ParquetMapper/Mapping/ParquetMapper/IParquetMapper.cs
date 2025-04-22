@@ -1,6 +1,6 @@
 ﻿using Parquet.Schema;
+using ParquetMapper.Abstractions;
 using ParquetMapper.Data;
-using ParquetMapper.Mapping.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace IgnoreImpact.ParquetMapper.Interfaces
+namespace ParquetMapper.Mapping.ParquetMapper
 {
     public interface IParquetMapper : IParquetWriter, IParquetReader
     {

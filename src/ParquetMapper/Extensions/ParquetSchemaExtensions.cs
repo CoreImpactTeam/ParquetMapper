@@ -1,5 +1,6 @@
 ﻿using Parquet.Schema;
 using ParquetMapper.Attributes;
+using ParquetMapper.Attributes.Processing.AttributeTransformContext;
 using ParquetMapper.Enums;
 using ParquetMapper.Exceptions;
 using System;
@@ -13,12 +14,6 @@ namespace ParquetMapper.Extensions
 {
     public static class ParquetSchemaExtensions
     {
-        public static Dictionary<string, PropertyInfo> CompareSchema<TDataType>(this ParquetSchema parquetSchema) where TDataType : new()
-        {
-            var type = new TDataType().GetType();
-
-            return parquetSchema.CompareSchema(type);
-        }
         public static bool IsSchemaCompatible<TDataType>(this ParquetSchema parquetSchema) where TDataType : new()
         {
             var type = new TDataType().GetType();
@@ -39,24 +34,30 @@ namespace ParquetMapper.Extensions
             }
         }
 
+        // TODO 'TryCompareSchema(this ParquetSchema parquetSchema, Type type, out Dictionary<string, PropertyInfo> result)'
+        public static Dictionary<string, PropertyInfo> CompareSchema<TDataType>(this ParquetSchema parquetSchema) where TDataType : new()
+        {
+            var type = new TDataType().GetType();
+
+            return parquetSchema.CompareSchema(type);
+        }
         public static Dictionary<string, PropertyInfo> CompareSchema(this ParquetSchema parquetSchema, Type type)
         {
-            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var attrTransformContext = new AttributeTransformContext(type);
             var nullabilityContext = new NullabilityInfoContext();
-            var typeIgnoreCasingAttribute = type.GetCustomAttribute<IgnoreCasingAttribute>();
             var matchingFields = new Dictionary<string, PropertyInfo>();
 
-            foreach (var prop in properties)
+            foreach (var prop in attrTransformContext.Properties)
             {
                 var isNullableProp = nullabilityContext.Create(prop).WriteState == NullabilityState.Nullable;
-                var isIgnorePropAttr = prop.GetCustomAttribute<IgnorePropertyAttribute>() != null;
+                var isIgnorePropAttr = attrTransformContext.PropertyAttributesDict[prop].OfType<IgnorePropertyAttribute>().Any();
 
                 if (isNullableProp || isIgnorePropAttr)
                 {
                     continue;
                 }
 
-                var field = CompareWithAttributes(parquetSchema.DataFields, prop, typeIgnoreCasingAttribute);
+                var field = CompareWithAttributes(parquetSchema.DataFields, prop, attrTransformContext);
 
                 if (field != null && field.ClrType == prop.PropertyType) // review the condition
                 {
@@ -64,7 +65,7 @@ namespace ParquetMapper.Extensions
                 }
             }
 
-            if (matchingFields.Count != properties.Count(prop => // review the condition
+            if (matchingFields.Count != attrTransformContext.Properties.Count(prop => // review the condition
                     nullabilityContext.Create(prop).WriteState != NullabilityState.Nullable &&
                     prop.GetCustomAttribute<IgnorePropertyAttribute>() == null))
             {
@@ -73,46 +74,13 @@ namespace ParquetMapper.Extensions
 
             return matchingFields;
         }
-        private static DataField? CompareWithAttributes(DataField[] dataFields, PropertyInfo property, IgnoreCasingAttribute? ignoreCasingAttribute = null)
+        private static DataField? CompareWithAttributes(DataField[] dataFields, PropertyInfo property, IAttributeTransformContext transformContext)
         {
 
             return dataFields.FirstOrDefault(dataField =>
             {
-                var fieldName = dataField.Name;
-                var propertyName = property.Name;
-
-                if (property.GetCustomAttribute<HasParquetColNameAttribute>() is HasParquetColNameAttribute colNameAttribute)
-                {
-                    propertyName = colNameAttribute.ColName ?? throw new NullColNameException();
-                }
-
-                ignoreCasingAttribute ??= property.GetCustomAttribute<IgnoreCasingAttribute>();
-
-                if (ignoreCasingAttribute != null)
-                {
-                    foreach (var flag in ignoreCasingAttribute.FilterFlags.GetActiveFlags())
-                    {
-                        switch (flag)
-                        {
-                            case FilterFlags.Hyphen:
-                                fieldName = fieldName.Replace("-", "");
-                                propertyName = propertyName.Replace("-", "");
-                                break;
-
-                            case FilterFlags.Underscore:
-                                fieldName = fieldName.Replace("_", "");
-                                propertyName = propertyName.Replace("_", "");
-                                break;
-
-                            case FilterFlags.Space:
-                                fieldName = fieldName.Replace(" ", "");
-                                propertyName = propertyName.Replace(" ", "");
-                                break;
-                        }
-                    }
-                    fieldName = fieldName.ToLower();
-                    propertyName = propertyName.ToLower();
-                }
+                var fieldName = transformContext.TransformTextByPropertyAttributes(property, dataField.Name);
+                var propertyName = transformContext.TransformTextByPropertyAttributes(property, property.Name); ;
 
                 return fieldName == propertyName;
             });
