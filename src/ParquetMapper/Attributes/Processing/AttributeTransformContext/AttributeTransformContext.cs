@@ -12,7 +12,7 @@ namespace ParquetMapper.Attributes.Processing.AttributeTransformContext
 {
     internal class AttributeTransformContext : IAttributeTransformContext
     {
-        public Type TargetType { get; }
+        public Type TargetType { get; init; }
         public IReadOnlyDictionary<PropertyInfo, IEnumerable<Attribute>> PropertyAttributesDict { get; }
         public IReadOnlyList<Attribute> TargetTypeAttributes { get; }
         public IReadOnlyList<PropertyInfo> Properties { get; }
@@ -56,7 +56,6 @@ namespace ParquetMapper.Attributes.Processing.AttributeTransformContext
         /// Thrown when the <see cref="HasParquetColNameAttribute"/> is present on the property 
         /// but its <c>ColName</c> value is null.
         /// </exception>
-
         public string TransformTextByPropertyAttributes(PropertyInfo prop, string targetText)
         {
             if (!PropertyAttributesDict.TryGetValue(prop, out var attributes))
