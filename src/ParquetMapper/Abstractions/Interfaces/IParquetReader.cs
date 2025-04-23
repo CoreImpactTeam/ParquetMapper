@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ParquetMapper.Abstractions
+namespace ParquetMapper.Abstractions.Interfaces
 {
     public interface IParquetReader
     {
