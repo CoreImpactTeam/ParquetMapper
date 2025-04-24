@@ -141,7 +141,7 @@ namespace ParquetMapper.Extensions
             var attrTransformContext = new AttributeTransformContext(type);
             var nullabilityContext = new NullabilityInfoContext();
             var matchingFields = new Dictionary<string, PropertyInfo>();
-
+            
             foreach (var prop in attrTransformContext.Properties)
             {
                 var isNullableProp = nullabilityContext.Create(prop).WriteState == NullabilityState.Nullable;
@@ -162,7 +162,7 @@ namespace ParquetMapper.Extensions
 
             if (matchingFields.Count != attrTransformContext.Properties.Count(prop =>
                     nullabilityContext.Create(prop).WriteState != NullabilityState.Nullable &&
-                    prop.GetCustomAttribute<IgnorePropertyAttribute>() == null))
+                    attrTransformContext.PropertyAttributesDict[prop].OfType<IgnorePropertyAttribute>().FirstOrDefault() == null))
             {
                 throw new IncompatibleSchemaTypeException(parquetSchema, type);
             }
