@@ -10,12 +10,23 @@ using System.Threading.Tasks;
 
 namespace ParquetMapper.Attributes.Processing.AttributeTransformContext
 {
-    internal class AttributeTransformContext : IAttributeTransformContext
+    /// <summary>
+    /// Provides contextual information about a target type, including its properties and associated attributes.
+    /// </summary>
+    public class AttributeTransformContext : IAttributeTransformContext
     {
         public Type TargetType { get; init; }
         public IReadOnlyDictionary<PropertyInfo, IEnumerable<Attribute>> PropertyAttributesDict { get; }
         public IReadOnlyList<Attribute> TargetTypeAttributes { get; }
         public IReadOnlyList<PropertyInfo> Properties { get; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AttributeTransformContext"/> class for the specified target type.
+        /// This constructor retrieves and caches the properties and attributes of the target type.
+        /// </summary>
+        /// <param name="targetType">The <see cref="Type"/> for which to create the transformation context.</param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="targetType"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="targetType"/> is not a class.</exception>
         public AttributeTransformContext(Type targetType)
         {
             if (targetType == null)
@@ -48,7 +59,7 @@ namespace ParquetMapper.Attributes.Processing.AttributeTransformContext
         /// The input text to be transformed. If the property is decorated with a 
         /// <see cref="HasParquetColNameAttribute"/>, its <c>ColName</c> value will replace this text.
         /// </param>
-        /// <returns>The transformed text as determined by the attributes applied.</returns>
+        /// <returns>The transformed text as determined by the attributes applied, <see langword="null"/> if property have <see cref="IgnorePropertyAttribute"/></returns>
         /// <exception cref="ArgumentException">
         /// Thrown when the specified property is not found in the <c>PropertyAttributesDict</c>.
         /// </exception>
@@ -61,6 +72,11 @@ namespace ParquetMapper.Attributes.Processing.AttributeTransformContext
             if (!PropertyAttributesDict.TryGetValue(prop, out var attributes))
             {
                 throw new ArgumentException("Invalid property", nameof(prop));
+            }
+
+            if (PropertyAttributesDict[prop].OfType<IgnorePropertyAttribute>().FirstOrDefault() is IgnorePropertyAttribute)
+            {
+                return null;
             }
 
             var colNameAttr = attributes.OfType<HasParquetColNameAttribute>().FirstOrDefault();
