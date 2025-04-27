@@ -29,7 +29,7 @@ namespace ParquetMapper.Extensions
         /// </returns>
         public static bool IsSchemaCompatible<TDataType>(this ParquetSchema parquetSchema) where TDataType : new()
         {
-            var type = new TDataType().GetType();
+            var type = typeof(TDataType);
             return parquetSchema.IsSchemaCompatible(type);
         }
 
@@ -73,7 +73,7 @@ namespace ParquetMapper.Extensions
         /// </returns>
         public static bool TryCompareSchema<TDataType>(this ParquetSchema parquetSchema, out Dictionary<string, PropertyInfo>? result) where TDataType : new()
         {
-            var type = new TDataType().GetType();
+            var type = typeof(TDataType);
             return parquetSchema.TryCompareSchema(type, out result);
         }
 
@@ -119,7 +119,7 @@ namespace ParquetMapper.Extensions
         /// </exception>
         public static Dictionary<string, PropertyInfo> CompareSchema<TDataType>(this ParquetSchema parquetSchema) where TDataType : new()
         {
-            var type = new TDataType().GetType();
+            var type = typeof(TDataType);
             return parquetSchema.CompareSchema(type);
         }
 
