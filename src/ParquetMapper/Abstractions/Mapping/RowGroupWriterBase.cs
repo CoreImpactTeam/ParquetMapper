@@ -1,7 +1,10 @@
 ﻿using Parquet;
 using Parquet.Data;
 using Parquet.Schema;
+using ParquetMapper.Abstractions.Interfaces;
 using ParquetMapper.Attributes.Processing.AttributeTransformContext;
+using ParquetMapper.Exceptions;
+using ParquetMapper.Extensions;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -9,6 +12,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ParquetMapper.Abstractions.Mapping
@@ -17,7 +21,7 @@ namespace ParquetMapper.Abstractions.Mapping
     /// An abstract base class for writing row groups in the Parquet format.
     /// Provides caching of type metadata to enhance performance.
     /// </summary>
-    public abstract class RowGroupWriterBase
+    public abstract class RowGroupWriterBase : ParquetSchemaCreatorBase
     {
         /// <summary>
         /// A cache of type metadata, where the key is the <see cref="Type"/> of the object,
@@ -66,11 +70,11 @@ namespace ParquetMapper.Abstractions.Mapping
         /// <typeparam name="T">The type of objects for which to retrieve metadata.</typeparam>
         /// <param name="schema">The Parquet schema that describes the data structure.</param>
         /// <returns>A <see cref="TypeMetadata"/> instance containing the metadata for the type <typeparamref name="T"/>.</returns>
-        protected TypeMetadata GetOrCreateMetadata<T>(ParquetSchema schema)
+        protected TypeMetadata GetOrCreateMetadata<T>(ParquetSchema? schema = null)
         {
             Type type = typeof(T);
 
-            return GetOrCreateMetadata(schema, type);
+            return GetOrCreateMetadata(type, schema);
         }
 
         /// <summary>
@@ -82,9 +86,9 @@ namespace ParquetMapper.Abstractions.Mapping
         /// <param name="schema">The Parquet schema that describes the data structure.</param>
         /// <param name="type">The type of objects for which to retrieve metadata.</param>
         /// <returns>A <see cref="TypeMetadata"/> instance containing the metadata for the specified <paramref name="type"/>.</returns>
-        protected TypeMetadata GetOrCreateMetadata(ParquetSchema schema, Type type)
+        protected TypeMetadata GetOrCreateMetadata(Type type, ParquetSchema? schema = null)
         {
-            return _typeMetadataCache.GetOrAdd(type, _ => CreateTypeMetadata(schema, type));
+            return _typeMetadataCache.GetOrAdd(type, _ => CreateTypeMetadata(type, schema));
         }
 
         /// <summary>
@@ -95,26 +99,46 @@ namespace ParquetMapper.Abstractions.Mapping
         /// <param name="schema">The Parquet schema that describes the data structure.</param>
         /// <param name="type">The type of objects for which to create metadata.</param>
         /// <returns>A <see cref="TypeMetadata"/> instance containing the created metadata.</returns>
-        private TypeMetadata CreateTypeMetadata(ParquetSchema schema, Type type)
+        private TypeMetadata CreateTypeMetadata(Type type, ParquetSchema? schema = null)
         {
+            schema ??= CreateParquetSchema(type);
+
             AttributeTransformContext transformContext = GetOrCreateTransformContext(type);
 
             PropertyInfo[] properties = transformContext.Properties as PropertyInfo[] ?? transformContext.Properties.ToArray();
 
-            Func<object, object>[] getters = properties.Select(property =>
+            Dictionary<PropertyInfo, Func<object, object>> getters = properties.ToDictionary(
+                property => property,
+                property =>
+                {
+                    ParameterExpression parameter = Expression.Parameter(typeof(object), "instance");
+                    Expression castInstance = Expression.Convert(parameter, type);
+                    Expression propertyAccess = Expression.Property(castInstance, property);
+                    Expression convertToObject = Expression.Convert(propertyAccess, typeof(object));
+                    return Expression.Lambda<Func<object, object>>(convertToObject, parameter).Compile();
+                });
+
+            Dictionary<PropertyInfo, Action<object, object>> setters = properties.ToDictionary(
+                 property => property,
+                 property =>
+                 {
+                     ParameterExpression instanceParam = Expression.Parameter(typeof(object), "instance");
+                     ParameterExpression valueParam = Expression.Parameter(typeof(object), "value");
+                     Expression castInstance = Expression.Convert(instanceParam, type);
+                     Expression castValue = Expression.Convert(valueParam, property.PropertyType);
+                     Expression propertyAccess = Expression.Property(castInstance, property);
+                     BinaryExpression assignExp = Expression.Assign(propertyAccess, castValue);
+                     return Expression.Lambda<Action<object, object>>(assignExp, instanceParam, valueParam).Compile();
+                 });
+
+            if (!schema.TryCompareSchema(type, out var valuePairs))
             {
-                ParameterExpression parameter = Expression.Parameter(typeof(object), "instance");
-                Expression castInstance = Expression.Convert(parameter, type);
-                Expression propertyAccess = Expression.Property(castInstance, property);
-                Expression convertToObject = Expression.Convert(propertyAccess, typeof(object));
-                return Expression.Lambda<Func<object, object>>(convertToObject, parameter).Compile();
-            }).ToArray();
+                throw new IncompatibleSchemaTypeException(schema, type);
+            }
 
-            Dictionary<string, DataField> dataFields = properties.ToDictionary(
-                property => transformContext.TransformTextByPropertyAttributes(property, property.Name),
-                property => schema.FindDataField(property.Name));
+            var dataFields = valuePairs.ToDictionary(x => x.Value, x => schema.FindDataField(x.Key));
 
-            return new TypeMetadata(properties, getters, dataFields);
+            return new TypeMetadata(properties, getters, setters, dataFields);
         }
 
         /// <summary>
@@ -144,10 +168,10 @@ namespace ParquetMapper.Abstractions.Mapping
 
                 for (int i = 0; i < rowCount; i++)
                 {
-                    columnData.SetValue(getter(batchArray[i]), i);
+                    columnData.SetValue(getter.Value(batchArray[i]), i);
                 }
 
-                DataColumn dataColumn = new(metadata.DataFields[property.Name], columnData);
+                DataColumn dataColumn = new(metadata.DataFields[property], columnData);
 
                 return rowGroup.WriteColumnAsync(dataColumn);
             });
@@ -165,7 +189,8 @@ namespace ParquetMapper.Abstractions.Mapping
         /// <param name="DataFields">A dictionary that maps property names to their corresponding <see cref="DataField"/> in the Parquet schema.</param>
         protected readonly record struct TypeMetadata(
             PropertyInfo[] Properties,
-            Func<object, object>[] Getters,
-            Dictionary<string, DataField> DataFields);
+            Dictionary<PropertyInfo, Func<object, object>> Getters,
+            Dictionary<PropertyInfo, Action<object, object>> Setters,
+            Dictionary<PropertyInfo, DataField> DataFields);
     }
 }
