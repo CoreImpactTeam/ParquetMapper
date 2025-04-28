@@ -1,13 +1,18 @@
 ﻿using Parquet;
 using Parquet.Data;
 using Parquet.Schema;
-using ParquetMapper.Abstractions;
+using ParquetMapper.Abstractions.Interfaces;
+using ParquetMapper.Abstractions.Mapping;
 using ParquetMapper.Attributes;
 using ParquetMapper.Data;
 using ParquetMapper.Exceptions;
 using ParquetMapper.Extensions;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Data.Common;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -15,144 +20,198 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using ZstdSharp.Unsafe;
 
-namespace ParquetMapper.Mapping.ParquetMapper
+namespace IgnoreImpact.ParquetMapper.Mapping
 {
-    public class ParquetMapper : IParquetMapper, IParquetWriter, IParquetReader
+    /// <summary>
+    /// Provides functionality for mapping .NET objects to and from Parquet files.
+    /// Implements interfaces for both writing (<see cref="IParquetWriter"/>) and reading (<see cref="IParquetReader"/>) Parquet data,
+    /// and inherits from <see cref="RowGroupActionBase"/> to leverage row group operations.
+    /// </summary>
+    public class ParquetMapper : RowGroupActionBase, IParquetMapper, IParquetWriter, IParquetReader
     {
-        public async Task WriteToParquetFileAsync<TDataType>(IAsyncEnumerable<TDataType> data, string path, int batchSize = 1024, CancellationToken cancellationToken = default) where TDataType : new()
+        /// <summary>
+        /// Asynchronously writes a collection of data objects to a Parquet file.
+        /// </summary>
+        /// <typeparam name="TDataType">The type of the data objects to write. Must have a parameterless constructor.</typeparam>
+        /// <param name="data">The enumerable collection of data objects to write.</param>
+        /// <param name="path">The full path to the Parquet file to create or overwrite.</param>
+        /// <param name="rowGroupSize">The maximum number of rows to include in each Parquet row group. Defaults to 1024.</param>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the operation to complete. Defaults to <see cref="CancellationToken.None"/>.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous write operation.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="data"/> or <paramref name="path"/> is null.</exception>
+        /// <exception cref="IOException">Thrown if an error occurs while creating or writing to the file.</exception>
+        public async Task WriteToParquetFileAsync<TDataType>(IEnumerable<TDataType> data, string path, int rowGroupSize = 1_000_000, CancellationToken cancellationToken = default) where TDataType : new()
+        {
+            static IEnumerable<TDataType> ToAsyncEnumerable(IEnumerable<TDataType> source)
+            {
+                foreach (var item in source)
+                {
+                    yield return item;
+                }
+            }
+
+            await WriteToParquetFileAsync(ToAsyncEnumerable(data), path, rowGroupSize, cancellationToken);
+        }
+
+        /// <summary>
+        /// Asynchronously writes an asynchronous stream of data objects to a Parquet file.
+        /// </summary>
+        /// <typeparam name="TDataType">The type of the data objects to write. Must have a parameterless constructor.</typeparam>
+        /// <param name="data">The asynchronous enumerable stream of data objects to write.</param>
+        /// <param name="path">The full path to the Parquet file to create or overwrite.</param>
+        /// <param name="batchSize">The number of data objects to buffer before writing a row group to the Parquet file. Defaults to 1024.</param>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the operation to complete. Defaults to <see cref="CancellationToken.None"/>.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous write operation.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="data"/> or <paramref name="path"/> is null.</exception>
+        /// <exception cref="IOException">Thrown if an error occurs while creating or writing to the file.</exception>
+        public async Task WriteToParquetFileAsync<TDataType>(IAsyncEnumerable<TDataType> data, string path, int batchSize = 1_000_000, CancellationToken cancellationToken = default) where TDataType : new()
         {
             var batch = new List<TDataType>(batchSize);
             var parquetSchema = CreateParquetSchema<TDataType>();
-            using (Stream stream = File.Create(path))
+
+            await using Stream stream = File.Create(path);
+            using var writer = await ParquetWriter.CreateAsync(parquetSchema, stream, cancellationToken: cancellationToken);
+
+            await foreach (var item in data.WithCancellation(cancellationToken))
             {
-                using (ParquetWriter writer = await ParquetWriter.CreateAsync(parquetSchema, stream, cancellationToken: cancellationToken)) // must be 'await using'
+                batch.Add(item);
+                if (batch.Count == batchSize)
                 {
-                    await foreach (var item in data)
-                    {
-                        batch.Add(item);
-                        if (batch.Count == batchSize)
-                        {
-                            await WriteBatch(writer, batch, parquetSchema);
-                            batch.Clear();
-                        }
-                    }
-                    if (batch.Count > 0)
-                    {
-                        await WriteBatch(writer, batch, parquetSchema);
-                    }
+                    await WriteRowGroupAsync(writer, batch, parquetSchema);
+                    batch.Clear();
                 }
             }
+
+            if (batch.Count > 0)
+            {
+                await WriteRowGroupAsync(writer, batch, parquetSchema);
+            }
         }
-        public ParquetSchema CreateParquetSchema<TDataType>() where TDataType : new()
+
+        /// <summary>
+        /// Creates a Parquet schema based on the properties of the specified data type.
+        /// </summary>
+        /// <typeparam name="TDataType">The type whose properties will be used to define the Parquet schema.</typeparam>
+        /// <returns>A new <see cref="ParquetSchema"/> representing the structure for the given type.</returns>
+        public override ParquetSchema CreateParquetSchema<TDataType>()
         {
             var type = typeof(TDataType);
-
             return CreateParquetSchema(type);
         }
-        public ParquetSchema CreateParquetSchema(Type type)
+
+        /// <summary>
+        /// Creates a Parquet schema based on the properties of the specified type.
+        /// </summary>
+        /// <param name="type">The <see cref="Type"/> whose properties will be used to define the Parquet schema.</param>
+        /// <returns>A new <see cref="ParquetSchema"/> representing the structure for the given type.</returns>
+        public override ParquetSchema CreateParquetSchema(Type type)
         {
             var dataFields = new List<DataField>();
-
-            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var transformContext = GetOrCreateTransformContext(type);
+            var properties = transformContext.Properties;
 
             foreach (var property in properties)
             {
-                var temp = property.GetCustomAttributes();
-                if (temp.Any(x => x.GetType() == typeof(IgnorePropertyAttribute)))
+                var colName = transformContext.TransformTextByPropertyAttributes(property, property.Name);
+
+                if (string.IsNullOrEmpty(colName))
                 {
                     continue;
                 }
 
-                var nameAttribute = property.GetCustomAttribute<HasParquetColNameAttribute>();
-
-                if (nameAttribute is null)
-                {
-                    dataFields.Add(new DataField(property.Name, property.PropertyType));
-                }
-                else
-                {
-                    dataFields.Add(new DataField(nameAttribute.ColName, property.PropertyType));
-                }
+                dataFields.Add(new DataField(colName, property.PropertyType));
             }
 
             return new ParquetSchema(dataFields);
         }
-        protected async Task WriteBatch<T>(ParquetWriter writer, IEnumerable<T> batch, ParquetSchema schema)
-        {
-            Type elementType = typeof(T);
-            var properties = elementType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            T[] batchArray = batch.ToArray();
 
-            using (var group = writer.CreateRowGroup())
+        /// <summary>
+        /// Asynchronously reads all row groups from a Parquet file into a <see cref="ParquetData{TDataType}"/> object.
+        /// </summary>
+        /// <typeparam name="TDataType">The type of the data objects to read. Must have a parameterless constructor.</typeparam>
+        /// <param name="path">The full path to the Parquet file to read from.</param>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the operation to complete. Defaults to <see cref="CancellationToken.None"/>.</param>
+        /// <returns>A <see cref="Task"/> that completes with a <see cref="ParquetData{TDataType}"/> object containing the read data and the Parquet reader.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="path"/> is null.</exception>
+        /// <exception cref="FileNotFoundException">Thrown if the Parquet file specified by <paramref name="path"/> does not exist.</exception>
+        /// <exception cref="IOException">Thrown if an error occurs while reading from the file.</exception>
+        /// <exception cref="IncompatibleSchemaTypeException">Thrown if the schema of the Parquet file is not compatible with <typeparamref name="TDataType"/>.</exception>
+        public async Task<ParquetData<TDataType>> ReadParquetAsync<TDataType>(string path, CancellationToken cancellationToken = default) where TDataType : new()
+        {
+            using var parquetReader = await ParquetReader.CreateAsync(path, cancellationToken: cancellationToken);
+
+            TDataType[][] buffer = new TDataType[parquetReader.RowGroupCount][];
+            var rowGroupIndex = 0;
+
+            var data = ReadParquetAsAsyncEnumerable<TDataType>(path, cancellationToken);
+
+            await foreach (var item in data)
             {
-                foreach (var property in properties)
-                {
-                    Array data = Array.CreateInstance(property.PropertyType, batch.Count());
-                    for (int i = 0; i < batchArray.Length; i++)
-                    {
-                        data.SetValue(property.GetValue(batchArray[i]), i);
-                    }
-                    DataColumn dataColumn = new DataColumn(schema.FindDataField(property.Name), data);
-                    await group.WriteColumnAsync(dataColumn);
-                }
+                buffer[rowGroupIndex++] = item;
             }
+
+            return new ParquetData<TDataType>(buffer, parquetReader);
         }
 
-        public Task WriteToParquetFileAsync<TDataType>(IEnumerable<TDataType> data, string path, int rowGroupSize = 1024, CancellationToken cancellationToken = default) where TDataType : new()
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<ParquetData<TDataType>> ReadParquetAsync<TDataType>(string path, CancellationToken cancellationToken = default)
-        {
-            throw new NotImplementedException();
-        }
-
+        /// <summary>
+        /// Asynchronously reads data from a Parquet file as an asynchronous enumerable of row groups.
+        /// Each element in the enumerable is an array of <typeparamref name="TDataType"/> representing a single row group.
+        /// </summary>
+        /// <typeparam name="TDataType">The type of the data objects to read. Must have a parameterless constructor.</typeparam>
+        /// <param name="path">The full path to the Parquet file to read from.</param>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the operation to complete. Defaults to <see cref="CancellationToken.None"/>.</param>
+        /// <returns>An <see cref="IAsyncEnumerable{T}"/> where each element is an array of <typeparamref name="TDataType"/> representing a row group.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="path"/> is null.</exception>
+        /// <exception cref="FileNotFoundException">Thrown if the Parquet file specified by <paramref name="path"/> does not exist.</exception>
+        /// <exception cref="IOException">Thrown if an error occurs while reading from the file.</exception>
+        /// <exception cref="IncompatibleSchemaTypeException">Thrown if the schema of the Parquet file is not compatible with <typeparamref name="TDataType"/>.</exception>
+        /// <exception cref="FailedToReadRowGroupException">Thrown if an error occurs while reading a specific row group.</exception>
         public async IAsyncEnumerable<TDataType[]> ReadParquetAsAsyncEnumerable<TDataType>(string path, [EnumeratorCancellation] CancellationToken cancellationToken = default) where TDataType : new()
         {
-            using (Stream fileStream = File.OpenRead(path))
+            await using Stream fileStream = File.OpenRead(path);
+            using var parquetReader = await ParquetReader.CreateAsync(fileStream, cancellationToken: cancellationToken);
+
+            var typeMetadata = GetOrCreateMetadata<TDataType>(parquetReader.Schema);
+
+            if (!parquetReader.Schema.IsSchemaCompatible<TDataType>())
             {
-                using (var parquetReader = await ParquetReader.CreateAsync(fileStream))
+                throw new IncompatibleSchemaTypeException(parquetReader.Schema, typeof(TDataType));
+            }
+
+            long rowsCount = parquetReader.Metadata.RowGroups.Max(rg => rg.NumRows);
+
+            TDataType[] buffer = ArrayPool<TDataType>.Shared.Rent((int)rowsCount);
+            try
+            {
+                if (buffer[0] == null)
                 {
-
-                    var dict = parquetReader.Schema.CompareSchema<TDataType>();
-
-                    if (dict.Count == 0)
+                    for (int rowIndex = 0; rowIndex < rowsCount; rowIndex++)
                     {
-                        throw new IncompatibleSchemaTypeException(parquetReader.Schema, typeof(TDataType));
-                    }
-
-                    long rowsCount = parquetReader.Metadata.NumRows / parquetReader.RowGroupCount;
-                    TDataType[] result = new TDataType[rowsCount];
-
-                    for (int i = 0; i < rowsCount; i++)
-                    {
-                        result[i] = new();
-                    }
-
-                    for (int i = 0; i < parquetReader.RowGroupCount; i++)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        var rowGroup = await parquetReader.ReadEntireRowGroupAsync(i);
-
-                        int rowGroupLength = rowGroup.First().Data.Length;
-
-                        for (int row = 0; row < rowGroupLength; row++)
-                        {
-                            foreach (var column in rowGroup)
-                            {
-                                if (dict.TryGetValue(column.Field.Name, out var prop))
-                                {
-                                    prop.SetValue(result[row], column.Data.GetValue(row));
-                                }
-                            }
-                        }
-
-                        yield return result.Take(rowGroupLength).ToArray();
+                        buffer[rowIndex] = new TDataType();
                     }
                 }
+
+                for (int groupIndex = 0; groupIndex < parquetReader.RowGroupCount; groupIndex++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    using var rowGroupReader = parquetReader.OpenRowGroupReader(groupIndex);
+                    int rowGroupLength = (int)rowGroupReader.RowCount;
+
+                    bool writingSuccess = await ReadGroupAndWriteToBuffer(rowGroupReader, typeMetadata, buffer);
+                    if (!writingSuccess)
+                    {
+                        throw new FailedToReadRowGroupException(groupIndex);
+                    }
+
+                    yield return buffer.Take(rowGroupLength).ToArray();
+                }
+            }
+            finally
+            {
+                ArrayPool<TDataType>.Shared.Return(buffer);
             }
         }
     }
