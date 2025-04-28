@@ -8,6 +8,7 @@ using ParquetMapper.Extensions;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -21,7 +22,7 @@ namespace ParquetMapper.Abstractions.Mapping
     /// An abstract base class for writing row groups in the Parquet format.
     /// Provides caching of type metadata to enhance performance.
     /// </summary>
-    public abstract class RowGroupWriterBase : ParquetSchemaCreatorBase
+    public abstract class RowGroupActionBase : ParquetSchemaCreatorBase
     {
         /// <summary>
         /// A cache of type metadata, where the key is the <see cref="Type"/> of the object,
@@ -139,6 +140,44 @@ namespace ParquetMapper.Abstractions.Mapping
             var dataFields = valuePairs.ToDictionary(x => x.Value, x => schema.FindDataField(x.Key));
 
             return new TypeMetadata(properties, getters, setters, dataFields);
+        }
+
+        /// <summary>
+        /// Asynchronously reads a row group and populates the provided buffer with column data.
+        /// </summary>
+        /// <typeparam name="TDataType">The type to map the data to.</typeparam>
+        /// <param name="rowGroupReader">The reader for the Parquet row group.</param>
+        /// <param name="metadata">Mapping info containing field names and setters.</param>
+        /// <param name="buffer">A preallocated array that will be filled with data.</param>
+        /// <returns>
+        /// True if the data was successfully read and written; false if an error occurred.
+        /// </returns>
+        protected async Task<bool> ReadGroupAndWriteToBuffer<TDataType>(ParquetRowGroupReader rowGroupReader, TypeMetadata metadata, TDataType[] buffer)
+        {
+            try
+            {
+                int rowGroupLength = (int)rowGroupReader.RowCount;
+
+                foreach (var comparedKeyValuePair in metadata.DataFields)
+                {
+                    var dataColumn = await rowGroupReader.ReadColumnAsync(comparedKeyValuePair.Value);
+
+                    if (metadata.Setters.TryGetValue(comparedKeyValuePair.Key, out var setter))
+                    {
+                        for (int i = 0; i < dataColumn.Data.Length; i++)
+                        {
+                            setter(buffer[i], dataColumn.Data.GetValue(i));
+                        }
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in ReadGroupAndWriteToBuffer: {ex}");
+                return false;
+            }
         }
 
         /// <summary>
