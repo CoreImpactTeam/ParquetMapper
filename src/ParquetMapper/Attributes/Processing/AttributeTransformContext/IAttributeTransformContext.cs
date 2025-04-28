@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace ParquetMapper.Attributes.Processing.AttributeTransformContext
 {
-    internal interface IAttributeTransformContext
+    public interface IAttributeTransformContext
     {
         string TransformTextByPropertyAttributes(PropertyInfo prop, string targetText);
     }
