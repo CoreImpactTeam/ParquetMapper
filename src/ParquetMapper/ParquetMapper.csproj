@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<Nullable>enable</Nullable>
+		<SignAssembly>False</SignAssembly>
+		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+		<Version>8.0.1-preview</Version>
+		<TargetFramework>net8.0</TargetFramework>
+		<Title>CoreImpact.$(AssemblyName)</Title>
+		<Authors>Core Impact (@CoreImpactTeam)</Authors>
+		<Description>Generic mapper for a parquet files.</Description>
+		<PackageProjectUrl>https://github.com/CoreImpactTeam/ParquetMapper</PackageProjectUrl>
+		<PackageIcon>icon.png</PackageIcon>
+		<RepositoryUrl>https://github.com/CoreImpactTeam/ParquetMapper</RepositoryUrl>
+		<PackageTags>parquet, mapping, generic, data</PackageTags>
+		<PackageId>CoreImpact.$(AssemblyName)</PackageId>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Copyright>© 2025 Core Impact. All rights reserved.</Copyright>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <None Include="..\..\docs\README.md">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
+	  <None Include="..\..\LICENSE">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
+	</ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Parquet.Net" Version="5.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>
