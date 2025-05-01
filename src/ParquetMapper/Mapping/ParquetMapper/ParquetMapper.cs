@@ -44,7 +44,7 @@ namespace IgnoreImpact.ParquetMapper.Mapping
         /// <exception cref="IOException">Thrown if an error occurs while creating or writing to the file.</exception>
         public async Task WriteToParquetFileAsync<TDataType>(IEnumerable<TDataType> data, string path, int rowGroupSize = 1_000_000, CancellationToken cancellationToken = default) where TDataType : new()
         {
-            static IEnumerable<TDataType> ToAsyncEnumerable(IEnumerable<TDataType> source)
+            static async IAsyncEnumerable<TDataType> ToAsyncEnumerable(IEnumerable<TDataType> source)
             {
                 foreach (var item in source)
                 {
