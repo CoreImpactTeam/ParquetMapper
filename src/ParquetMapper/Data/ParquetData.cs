@@ -1,16 +1,9 @@
-﻿using Parquet;
+﻿using CoreImpact.ParquetMapper.Exceptions;
+using Parquet;
 using Parquet.Meta;
 using Parquet.Schema;
-using ParquetMapper.Exceptions;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Security;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace ParquetMapper.Data
+namespace CoreImpact.ParquetMapper.Data
 {
     /// <summary>
     /// Represents data read from a Parquet file, including the row groups, schema, metadata, and custom metadata.

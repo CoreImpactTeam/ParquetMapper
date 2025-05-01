@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ParquetMapper.Attributes
+﻿namespace CoreImpact.ParquetMapper.Attributes
 {
     /// <summary>
     /// Marks a property to be ignored by the Parquet mapper; this property will not be written to or read from the Parquet file.

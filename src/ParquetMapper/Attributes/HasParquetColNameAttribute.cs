@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ParquetMapper.Attributes
+﻿namespace CoreImpact.ParquetMapper.Attributes
 {
     /// <summary>
     /// Specifies a custom column name for a property when mapping to a Parquet file.

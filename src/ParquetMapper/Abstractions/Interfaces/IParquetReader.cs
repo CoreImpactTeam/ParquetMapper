@@ -1,12 +1,6 @@
-﻿using ParquetMapper.Data;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using CoreImpact.ParquetMapper.Data;
 
-namespace ParquetMapper.Abstractions.Interfaces
+namespace CoreImpact.ParquetMapper.Abstractions.Interfaces
 {
     public interface IParquetReader
     {

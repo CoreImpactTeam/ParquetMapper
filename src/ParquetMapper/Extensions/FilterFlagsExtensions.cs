@@ -1,11 +1,6 @@
-﻿using ParquetMapper.Enums;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using CoreImpact.ParquetMapper.Enums;
 
-namespace ParquetMapper.Extensions
+namespace CoreImpact.ParquetMapper.Extensions
 {
     /// <summary>
     /// Provides extension methods for the <see cref="FilterFlags"/> enumeration.

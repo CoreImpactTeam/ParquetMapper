@@ -1,28 +1,14 @@
-﻿using Parquet;
-using Parquet.Data;
+﻿using CoreImpact.ParquetMapper.Abstractions.Interfaces;
+using CoreImpact.ParquetMapper.Abstractions.Mapping;
+using CoreImpact.ParquetMapper.Data;
+using CoreImpact.ParquetMapper.Exceptions;
+using CoreImpact.ParquetMapper.Extensions;
+using Parquet;
 using Parquet.Schema;
-using ParquetMapper.Abstractions.Interfaces;
-using ParquetMapper.Abstractions.Mapping;
-using ParquetMapper.Attributes;
-using ParquetMapper.Data;
-using ParquetMapper.Exceptions;
-using ParquetMapper.Extensions;
-using System;
 using System.Buffers;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Data.Common;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using ZstdSharp.Unsafe;
 
-namespace IgnoreImpact.ParquetMapper.Mapping
+namespace CoreImpact.ParquetMapper.Mapping
 {
     /// <summary>
     /// Provides functionality for mapping .NET objects to and from Parquet files.

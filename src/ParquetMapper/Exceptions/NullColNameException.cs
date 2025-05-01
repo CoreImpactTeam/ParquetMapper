@@ -1,13 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ParquetMapper.Exceptions
+﻿namespace CoreImpact.ParquetMapper.Exceptions
 {
     public class NullColNameException : Exception
     {
-        public NullColNameException() : base($"Col name can`t be null"){}
+        public NullColNameException() : base($"Col name can`t be null") { }
     }
 }

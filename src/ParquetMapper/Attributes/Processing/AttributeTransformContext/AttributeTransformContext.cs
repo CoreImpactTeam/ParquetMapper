@@ -1,14 +1,9 @@
-﻿using ParquetMapper.Enums;
-using ParquetMapper.Exceptions;
-using ParquetMapper.Extensions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using CoreImpact.ParquetMapper.Enums;
+using CoreImpact.ParquetMapper.Exceptions;
+using CoreImpact.ParquetMapper.Extensions;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace ParquetMapper.Attributes.Processing.AttributeTransformContext
+namespace CoreImpact.ParquetMapper.Attributes.Processing
 {
     /// <summary>
     /// Provides contextual information about a target type, including its properties and associated attributes.

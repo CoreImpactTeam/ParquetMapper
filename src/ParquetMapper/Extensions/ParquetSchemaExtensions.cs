@@ -1,16 +1,10 @@
-﻿using Parquet.Schema;
-using ParquetMapper.Attributes;
-using ParquetMapper.Attributes.Processing.AttributeTransformContext;
-using ParquetMapper.Enums;
-using ParquetMapper.Exceptions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using CoreImpact.ParquetMapper.Attributes;
+using CoreImpact.ParquetMapper.Attributes.Processing;
+using CoreImpact.ParquetMapper.Exceptions;
+using Parquet.Schema;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace ParquetMapper.Extensions
+namespace CoreImpact.ParquetMapper.Extensions
 {
     /// <summary>
     /// Contains extension methods for the <see cref="ParquetSchema"/> class that simplify integration
@@ -141,7 +135,7 @@ namespace ParquetMapper.Extensions
             var attrTransformContext = new AttributeTransformContext(type);
             var nullabilityContext = new NullabilityInfoContext();
             var matchingFields = new Dictionary<string, PropertyInfo>();
-            
+
             foreach (var prop in attrTransformContext.Properties)
             {
                 var isNullableProp = nullabilityContext.Create(prop).WriteState == NullabilityState.Nullable;

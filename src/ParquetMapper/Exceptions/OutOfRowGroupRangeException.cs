@@ -1,11 +1,6 @@
-﻿using ParquetMapper.Data;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using CoreImpact.ParquetMapper.Data;
 
-namespace ParquetMapper.Exceptions
+namespace CoreImpact.ParquetMapper.Exceptions
 {
     public class OutOfRowGroupRangeException : Exception
     {

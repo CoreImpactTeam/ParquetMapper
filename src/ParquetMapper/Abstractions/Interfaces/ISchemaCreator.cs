@@ -1,11 +1,6 @@
 ﻿using Parquet.Schema;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace ParquetMapper.Abstractions.Interfaces
+namespace CoreImpact.ParquetMapper.Abstractions.Interfaces
 {
     public interface ISchemaCreator
     {

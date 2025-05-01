@@ -1,22 +1,15 @@
-﻿using Parquet;
+﻿using CoreImpact.ParquetMapper.Attributes.Processing;
+using CoreImpact.ParquetMapper.Exceptions;
+using CoreImpact.ParquetMapper.Extensions;
+using Parquet;
 using Parquet.Data;
 using Parquet.Schema;
-using ParquetMapper.Abstractions.Interfaces;
-using ParquetMapper.Attributes.Processing.AttributeTransformContext;
-using ParquetMapper.Exceptions;
-using ParquetMapper.Extensions;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace ParquetMapper.Abstractions.Mapping
+namespace CoreImpact.ParquetMapper.Abstractions.Mapping
 {
     /// <summary>
     /// An abstract base class for writing row groups in the Parquet format.
