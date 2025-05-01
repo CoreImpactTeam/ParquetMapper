@@ -54,9 +54,13 @@ jobs:
         shell: bash
         run: |
           git fetch origin main --depth=1
-          MAIN_VERSION=$(git show origin/main:src/ParquetMapper/ParquetMapper.csproj | grep -oPm1 "(?<=<Version>)[^<]+")
-          
-          MAIN_NUMERIC=${MAIN_VERSION#preview-}
+          if git cat-file -e origin/main:src/ParquetMapper/ParquetMapper.csproj; then
+            MAIN_VERSION=$(git show origin/main:src/ParquetMapper/ParquetMapper.csproj | grep -oPm1 "(?<=<Version>)[^<]+")
+            MAIN_NUMERIC=${MAIN_VERSION#preview-}
+          else
+            echo "Project file not found in main, assuming version 0.0.0"
+            MAIN_NUMERIC="0.0.0"
+          fi
           echo "main_numeric=$MAIN_NUMERIC" >> $GITHUB_OUTPUT
 
       - name: Get Version from Feature Branch
