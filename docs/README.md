@@ -1,4 +1,3 @@
----
 # CoreImpact.ParquetMapper
 
 **CoreImpact.ParquetMapper** is a .NET library for reading and writing [Parquet](https://parquet.apache.org/) files using strongly-typed C# classes. It enables seamless serialization and deserialization of data with schema support, attribute-based mapping, and compatibility validation tools.
