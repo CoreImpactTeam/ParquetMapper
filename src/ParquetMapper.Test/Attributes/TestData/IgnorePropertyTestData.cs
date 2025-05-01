@@ -1,12 +1,7 @@
-﻿using ParquetMapper.Test.Attributes.TestTypes;
-using System;
+﻿using CoreImpact.ParquetMapper.Test.Attributes.TestTypes;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace ParquetMapper.Test.Attributes.TestData
+namespace CoreImpact.ParquetMapper.Test.Attributes.TestData
 {
 
     public class IgnorePropertyTestData : IEnumerable<object[]>

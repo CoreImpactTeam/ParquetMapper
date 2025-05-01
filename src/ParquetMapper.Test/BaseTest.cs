@@ -1,20 +1,16 @@
-﻿using Parquet;
+﻿using CoreImpact.ParquetMapper.Attributes;
+using CoreImpact.ParquetMapper.Data;
+using CoreImpact.ParquetMapper.Enums;
+using CoreImpact.ParquetMapper.Exceptions;
+using CoreImpact.ParquetMapper.Extensions;
+using Parquet;
+using Parquet.Data;
 using Parquet.Schema;
-using ParquetMapper.Attributes;
-using ParquetMapper.Data;
-using ParquetMapper.Exceptions;
-using ParquetMapper.Extensions;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using Xunit.Sdk;
+using System.Security.Cryptography;
 
-namespace ParquetMapper.Test
+namespace CoreImpact.ParquetMapper.Test
 {
     public abstract class BaseTest
     {
@@ -26,9 +22,7 @@ namespace ParquetMapper.Test
 
             foreach (var property in properties)
             {
-                var attributes = property.GetCustomAttributes();
-
-                var colName = HandleAttributes(attributes, property.Name);
+                var colName = HandleAttributes(property, type, property.Name);
 
                 if (string.IsNullOrEmpty(colName))
                 {
@@ -40,56 +34,59 @@ namespace ParquetMapper.Test
 
             return new ParquetSchema(dataFields);
         }
-        protected async Task<ParquetData<TDataType>> ReadParquetAsync<TDataType>(string path, CancellationToken cancellationToken = default) where TDataType : new()
+        protected async Task WriteToParquetFileAsync<TDataType>(IEnumerable<TDataType> data, string path, int rowGroupSize = 1_000_000, CancellationToken cancellationToken = default) where TDataType : new()
         {
-            using (Stream fileStream = File.OpenRead(path))
+            static async IAsyncEnumerable<TDataType> ToAsyncEnumerable(IEnumerable<TDataType> source)
             {
-                using (var parquetReader = await ParquetReader.CreateAsync(fileStream))
+                foreach (var item in source)
                 {
-
-                    var dict = parquetReader.Schema.CompareSchema<TDataType>();
-
-                    if (dict.Count != 0)
-                    {
-                        TDataType[][] result = new TDataType[parquetReader.RowGroupCount][];
-
-                        for (int i = 0; i < parquetReader.RowGroupCount; i++)
-                        {
-                            var rowGroup = await parquetReader.ReadEntireRowGroupAsync(i);
-
-                            long rowsCount = parquetReader.Metadata.NumRows / parquetReader.RowGroupCount;
-                            result[i] = new TDataType[rowsCount];
-
-                            for (int j = 0; j < rowsCount; j++)
-                            {
-                                result[i][j] = new();
-                            }
-
-                            foreach (var column in rowGroup)
-                            {
-                                dict.TryGetValue(column.Field.Name, out var prop);
-
-                                if (prop == null)
-                                {
-                                    continue;
-                                }
-
-                                for (int rowIterator = 0; rowIterator < column.Data.Length; rowIterator++)
-                                {
-                                    prop.SetValue(result[i][rowIterator], column.Data.GetValue(rowIterator));
-                                }
-                            }
-                        }
-
-                        return new ParquetData<TDataType>(result, parquetReader);
-                    }
-
-                    throw new IncompatibleSchemaTypeException(parquetReader.Schema, typeof(TDataType));
+                    yield return item;
                 }
+            }
 
+            await WriteToParquetFileAsync(ToAsyncEnumerable(data), path, rowGroupSize, cancellationToken);
+        }
+        public async Task WriteToParquetFileAsync<TDataType>(IAsyncEnumerable<TDataType> data, string path, int batchSize = 1_000_000, CancellationToken cancellationToken = default) where TDataType : new()
+        {
+            var batch = new List<TDataType>(batchSize);
+            var parquetSchema = CreateParquetSchema(typeof(TDataType));
+
+            await using Stream stream = File.Create(path);
+            using var writer = await ParquetWriter.CreateAsync(parquetSchema, stream, cancellationToken: cancellationToken);
+
+            await foreach (var item in data.WithCancellation(cancellationToken))
+            {
+                batch.Add(item);
+                if (batch.Count == batchSize)
+                {
+                    await WriteBatch(writer, batch, parquetSchema);
+                    batch.Clear();
+                }
+            }
+
+            if (batch.Count > 0)
+            {
+                await WriteBatch(writer, batch, parquetSchema);
             }
         }
-        protected async IAsyncEnumerable<TDataType[]> ReadParquetAsAsyncEnumerable<TDataType>(string path, [EnumeratorCancellation]CancellationToken cancellationToken = default) where TDataType : new()
+
+        protected async Task<ParquetData<TDataType>> ReadParquetAsync<TDataType>(string path, CancellationToken cancellationToken = default) where TDataType : class, new()
+        {
+            using var parquetReader = await ParquetReader.CreateAsync(path, cancellationToken: cancellationToken);
+
+            TDataType[][] buffer = new TDataType[parquetReader.RowGroupCount][];
+            var rowGroupIndex = 0;
+
+            var data = ReadParquetAsAsyncEnumerable<TDataType>(path, cancellationToken);
+
+            await foreach (var item in data)
+            {
+                buffer[rowGroupIndex++] = item;
+            }
+
+            return new ParquetData<TDataType>(buffer, parquetReader);
+        }
+        protected async IAsyncEnumerable<TDataType[]> ReadParquetAsAsyncEnumerable<TDataType>(string path, [EnumeratorCancellation] CancellationToken cancellationToken = default) where TDataType : new()
         {
             using (Stream fileStream = File.OpenRead(path))
             {
@@ -135,8 +132,11 @@ namespace ParquetMapper.Test
                 }
             }
         }
-        private string HandleAttributes(IEnumerable<Attribute>? attributes, string propertyName)
+        protected string HandleAttributes(PropertyInfo property, Type type, string propertyName)
         {
+            var attributes = property.GetCustomAttributes();
+            var typeAttributes = type.GetCustomAttributes();
+
             if (attributes == null)
             {
                 return propertyName;
@@ -147,24 +147,72 @@ namespace ParquetMapper.Test
                 return null;
             }
 
-            foreach(var attribute in attributes)
+            if (attributes.FirstOrDefault(x => x.GetType() == typeof(HasParquetColNameAttribute)) is HasParquetColNameAttribute colNameAttribute)
             {
-                switch (attribute)
+                if (string.IsNullOrEmpty(colNameAttribute.ColName))
                 {
-                    case HasParquetColNameAttribute temp:
-                        if (string.IsNullOrEmpty(temp.ColName))
-                        {
-                            throw new NullColNameException();
-                        }
-
-                        propertyName = temp.ColName;
-                        break;
-
-                    // TODO
+                    throw new NullColNameException();
                 }
+
+                propertyName = colNameAttribute.ColName;
+            }
+
+            var ignoreCasingAttribute = typeAttributes.OfType<IgnoreCasingAttribute>().FirstOrDefault() ?? attributes.OfType<IgnoreCasingAttribute>().FirstOrDefault();
+
+            if (ignoreCasingAttribute != null)
+            {
+                foreach (var flag in ignoreCasingAttribute.FilterFlags.GetActiveFlags())
+                {
+                    switch (flag)
+                    {
+                        case FilterFlags.Hyphen:
+                            propertyName = propertyName.Replace("-", "");
+                            break;
+
+                        case FilterFlags.Underscore:
+                            propertyName = propertyName.Replace("_", "");
+                            break;
+
+                        case FilterFlags.Space:
+                            propertyName = propertyName.Replace(" ", "");
+                            break;
+                    }
+                }
+
+                propertyName = propertyName.ToLower();
             }
 
             return propertyName;
+        }
+        protected string ComputeHash(string fileName)
+        {
+            using (SHA256 sha = SHA256.Create())
+            using (FileStream stream = File.OpenRead(fileName))
+            {
+                byte[] hashBytes = sha.ComputeHash(stream);
+
+                return BitConverter.ToString(hashBytes).Replace("-", "");
+            }
+        }
+        private async Task WriteBatch<T>(ParquetWriter writer, IEnumerable<T> batch, ParquetSchema schema)
+        {
+            Type elementType = typeof(T);
+            var properties = elementType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            T[] batchArray = batch.ToArray();
+
+            using (var group = writer.CreateRowGroup())
+            {
+                foreach (var property in properties)
+                {
+                    Array data = Array.CreateInstance(property.PropertyType, batch.Count());
+                    for (int i = 0; i < batchArray.Length; i++)
+                    {
+                        data.SetValue(property.GetValue(batchArray[i]), i);
+                    }
+                    DataColumn dataColumn = new DataColumn(schema.FindDataField(property.Name), data);
+                    await group.WriteColumnAsync(dataColumn);
+                }
+            }
         }
     }
 }

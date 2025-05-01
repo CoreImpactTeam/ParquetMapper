@@ -1,24 +1,16 @@
-﻿using IgnoreImpact.ParquetMapper.Interfaces;
-using Newtonsoft.Json.Linq;
-using Parquet.Schema;
-using ParquetMapper.Exceptions;
-using ParquetMapper.Test;
-using ParquetMapper.Test.Attributes.TestData;
-using ParquetMapper.Test.Attributes.TestTypes;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using CoreImpact.ParquetMapper.Exceptions;
+using CoreImpact.ParquetMapper.Mapping;
+using CoreImpact.ParquetMapper.Test.Attributes.TestData;
+using CoreImpact.ParquetMapper.Test.Attributes.TestTypes;
 
-namespace IgnoreImpact.ParquetMapper.Test.Attributes
+namespace CoreImpact.ParquetMapper.Test.Attributes
 {
     public class IgnorePropertyAttributeTest : BaseTest
     {
         private readonly IParquetMapper _parquetMapper;
         public IgnorePropertyAttributeTest()
         {
-            _parquetMapper = new ParquetMapper();
+            _parquetMapper = new Mapping.ParquetMapper();
         }
         [Theory]
         [ClassData(typeof(IgnorePropertyTestData))]
