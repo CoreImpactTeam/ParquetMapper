@@ -6,14 +6,14 @@
 		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
 		<Version>8.0.1-preview</Version>
 		<TargetFramework>net8.0</TargetFramework>
-		<Title>CoreImpactCoreImpact.$(AssemblyName)</Title>
-		<Authors>CoreImpactМСщкуCrore</Authors>
+		<Title>CoreImpact.$(AssemblyName)</Title>
+		<Authors>Core Impact (@CoreImpactTeam)</Authors>
 		<Description>Generic mapper for a parquet files.</Description>
 		<PackageProjectUrl>https://github.com/CoreImpactTeam/ParquetMapper</PackageProjectUrl>
-		<PackageIcon>LSM-logo.png</PackageIcon>
+		<PackageIcon>icon.png</PackageIcon>
 		<RepositoryUrl>https://github.com/CoreImpactTeam/ParquetMapper</RepositoryUrl>
 		<PackageTags>parquet, mapping, generic, data</PackageTags>
-		<PackageId>CoreImpactCoreImpact.$(AssemblyName)</PackageId>
+		<PackageId>CoreImpact.$(AssemblyName)</PackageId>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Copyright>© 2025 Core Impact. All rights reserved.</Copyright>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -32,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="LSM-logo.png">
+    <None Update="icon.png">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
