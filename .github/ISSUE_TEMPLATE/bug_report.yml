@@ -6,12 +6,13 @@ labels:
 assignees: []
 
 body:
-  - type: markdown
+  - type: input
+    id: problem_description
     attributes:
-      value: |
-        ## Problem Description
-	Please describe the problem in detail so that we can understand what exactly is happening.
-  
+      label: "Problem Description"
+      description: "Please describe the problem in detail so that we can understand what exactly is happening."
+      placeholder: "Enter a short summary of the problem..."
+
   - type: textarea
     id: reproduction
     attributes:
