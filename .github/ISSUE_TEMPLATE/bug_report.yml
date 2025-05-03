@@ -1,0 +1,19 @@
+name: "Bug Report"
+description: "Please report the issue so it can be fixed."
+title: "[BUG] - {{Short description}}"
+labels:
+  - bug
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Problem Description
+	Please describe the problem in detail so that we can understand what exactly is happening.
+  
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Steps for reproduction"
+      description: "Please provide detailed steps to reproduce the error."
