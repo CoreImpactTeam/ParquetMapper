@@ -1,6 +1,6 @@
 ﻿using Parquet.Schema;
 
-namespace ParquetMapper.Exceptions
+namespace CoreImpact.ParquetMapper.Exceptions
 {
     public class ValueCannotBeNullException : Exception
     {

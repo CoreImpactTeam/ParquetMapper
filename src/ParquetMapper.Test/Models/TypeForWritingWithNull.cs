@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ParquetMapper.Test.Models
+namespace CoreImpact.ParquetMapper.Test.Models
 {
     [IgnoreCasing]
     public class TypeForWritingWithNull
