@@ -4,6 +4,7 @@ using CoreImpact.ParquetMapper.Extensions;
 using Parquet;
 using Parquet.Data;
 using Parquet.Schema;
+using ParquetMapper.Exceptions;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq.Expressions;
@@ -185,6 +186,10 @@ namespace CoreImpact.ParquetMapper.Abstractions.Mapping
         /// <param name="batch">The collection of objects to write.</param>
         /// <param name="schema">The Parquet schema that describes the structure of the batch data.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous write operation.</returns>
+        /// <exception cref="ValueCannotBeNullException">
+        /// Thrown when the <typeparamref name="T"/> have a non-nullable properties,
+        /// but it tries to be written as null.
+        /// </exception>
         protected async Task WriteRowGroupAsync<T>(ParquetWriter writer, IEnumerable<T> batch, ParquetSchema schema)
         {
             T[] batchArray = batch as T[] ?? batch.ToArray();
@@ -196,15 +201,23 @@ namespace CoreImpact.ParquetMapper.Abstractions.Mapping
 
             var writeTasks = metadata.Properties.Zip(metadata.Getters, (property, getter) =>
             {
+                var isNullable = metadata.DataFields[property].IsNullable;
+
                 Array columnData = Array.CreateInstance(property.PropertyType, rowCount);
 
                 for (int i = 0; i < rowCount; i++)
                 {
-                    columnData.SetValue(getter.Value(batchArray[i]), i);
+                    var value = getter.Value(batchArray[i]);
+
+                    if (!isNullable)
+                    {
+                        _ = value ?? throw new ValueCannotBeNullException(metadata.DataFields[property]);
+                    }
+
+                    columnData.SetValue(value, i);
                 }
 
                 DataColumn dataColumn = new(metadata.DataFields[property], columnData);
-
                 return rowGroup.WriteColumnAsync(dataColumn);
             });
 

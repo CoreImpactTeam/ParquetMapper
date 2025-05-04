@@ -1,10 +1,13 @@
-﻿using CoreImpact.ParquetMapper.Exceptions;
+﻿using CoreImpact.ParquetMapper.Abstractions.Interfaces;
+using CoreImpact.ParquetMapper.Exceptions;
 using CoreImpact.ParquetMapper.Extensions;
 using CoreImpact.ParquetMapper.Mapping;
 using CoreImpact.ParquetMapper.Test.Abstractions;
 using CoreImpact.ParquetMapper.Test.Attributes.TestTypes;
 using CoreImpact.ParquetMapper.Test.Models;
 using Parquet.Schema;
+using ParquetMapper.Exceptions;
+using ParquetMapper.Test.Models;
 
 namespace CoreImpact.ParquetMapper.Test
 {
@@ -54,6 +57,27 @@ namespace CoreImpact.ParquetMapper.Test
             var result = ComputeHash("test2.parquet");
 
             Assert.Equal(expected, result);
+        }
+        [Fact]
+        public async Task Test_Write_Parquet_File_With_Null()
+        {
+            var data = new List<TypeForWritingWithNull>{
+                new TypeForWritingWithNull{ Count = null, Task = "text", Description = "text" },
+                new TypeForWritingWithNull{ Count = 1, Task = "text" },
+            };
+
+            await _parquetMapper.WriteToParquetFileAsync(data, "test_with_null.parquet");
+        }
+        [Fact]
+        public async Task Throw_ValueCannotBeNullException()
+        {
+            var data = new List<TypeForWritingWithNull>{
+                new TypeForWritingWithNull{ Count = null, Task = null, Description = "text" },
+                new TypeForWritingWithNull{ Count = 1, Task = "text" },
+                new TypeForWritingWithNull{ }
+            };
+
+            await Assert.ThrowsAsync<ValueCannotBeNullException>(async () => await _parquetMapper.WriteToParquetFileAsync(data, "throw_valueCannotBeNullException.parquet"));
         }
         [Fact]
         public void Throw_IncompatibleSchemaTypeException()

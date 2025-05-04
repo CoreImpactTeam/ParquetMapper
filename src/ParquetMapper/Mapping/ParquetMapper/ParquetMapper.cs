@@ -6,6 +6,7 @@ using CoreImpact.ParquetMapper.Extensions;
 using Parquet;
 using Parquet.Schema;
 using System.Buffers;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace CoreImpact.ParquetMapper.Mapping
@@ -96,10 +97,12 @@ namespace CoreImpact.ParquetMapper.Mapping
         {
             var dataFields = new List<DataField>();
             var transformContext = GetOrCreateTransformContext(type);
+            var nullabilityContext = new NullabilityInfoContext();
             var properties = transformContext.Properties;
 
             foreach (var property in properties)
             {
+                var isNullableProp = nullabilityContext.Create(property).WriteState == NullabilityState.Nullable;
                 var colName = transformContext.TransformTextByPropertyAttributes(property, property.Name);
 
                 if (string.IsNullOrEmpty(colName))
@@ -107,7 +110,7 @@ namespace CoreImpact.ParquetMapper.Mapping
                     continue;
                 }
 
-                dataFields.Add(new DataField(colName, property.PropertyType));
+                dataFields.Add(new DataField(colName, property.PropertyType, isNullableProp));
             }
 
             return new ParquetSchema(dataFields);

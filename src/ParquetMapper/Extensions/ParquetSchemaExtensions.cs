@@ -138,24 +138,22 @@ namespace CoreImpact.ParquetMapper.Extensions
 
             foreach (var prop in attrTransformContext.Properties)
             {
-                var isNullableProp = nullabilityContext.Create(prop).WriteState == NullabilityState.Nullable;
                 var isIgnorePropAttr = attrTransformContext.PropertyAttributesDict[prop].OfType<IgnorePropertyAttribute>().Any();
 
-                if (isNullableProp || isIgnorePropAttr)
+                if (isIgnorePropAttr)
                 {
                     continue;
                 }
 
                 var field = CompareWithAttributes(parquetSchema.DataFields, prop, attrTransformContext);
 
-                if (field != null && field.ClrType == prop.PropertyType)
+                if (field != null && field.ClrNullableIfHasNullsType == prop.PropertyType)
                 {
                     matchingFields.Add(field.Name, prop);
                 }
             }
 
             if (matchingFields.Count != attrTransformContext.Properties.Count(prop =>
-                    nullabilityContext.Create(prop).WriteState != NullabilityState.Nullable &&
                     attrTransformContext.PropertyAttributesDict[prop].OfType<IgnorePropertyAttribute>().FirstOrDefault() == null))
             {
                 throw new IncompatibleSchemaTypeException(parquetSchema, type);
