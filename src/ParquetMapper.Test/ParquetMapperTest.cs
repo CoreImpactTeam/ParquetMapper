@@ -6,8 +6,6 @@ using CoreImpact.ParquetMapper.Test.Abstractions;
 using CoreImpact.ParquetMapper.Test.Attributes.TestTypes;
 using CoreImpact.ParquetMapper.Test.Models;
 using Parquet.Schema;
-using ParquetMapper.Exceptions;
-using ParquetMapper.Test.Models;
 
 namespace CoreImpact.ParquetMapper.Test
 {
