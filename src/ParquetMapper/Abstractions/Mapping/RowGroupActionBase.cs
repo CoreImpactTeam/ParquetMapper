@@ -4,7 +4,6 @@ using CoreImpact.ParquetMapper.Extensions;
 using Parquet;
 using Parquet.Data;
 using Parquet.Schema;
-using ParquetMapper.Exceptions;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq.Expressions;
