@@ -17,11 +17,12 @@ namespace CoreImpact.ParquetMapper.Test
         protected ParquetSchema CreateParquetSchema(Type type)
         {
             var dataFields = new List<DataField>();
-
+            var nullabilityContext = new NullabilityInfoContext();
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
             foreach (var property in properties)
             {
+                var isNullableProp = nullabilityContext.Create(property).WriteState == NullabilityState.Nullable;
                 var colName = HandleAttributes(property, type, property.Name);
 
                 if (string.IsNullOrEmpty(colName))
@@ -29,7 +30,7 @@ namespace CoreImpact.ParquetMapper.Test
                     continue;
                 }
 
-                dataFields.Add(new DataField(colName, property.PropertyType));
+                dataFields.Add(new DataField(colName, property.PropertyType, isNullableProp));
             }
 
             return new ParquetSchema(dataFields);
