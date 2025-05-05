@@ -1,5 +1,4 @@
-﻿using CoreImpact.ParquetMapper.Abstractions.Interfaces;
-using CoreImpact.ParquetMapper.Exceptions;
+﻿using CoreImpact.ParquetMapper.Exceptions;
 using CoreImpact.ParquetMapper.Extensions;
 using CoreImpact.ParquetMapper.Mapping;
 using CoreImpact.ParquetMapper.Test.Abstractions;

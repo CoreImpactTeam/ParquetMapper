@@ -4,7 +4,7 @@
 		<Nullable>enable</Nullable>
 		<SignAssembly>False</SignAssembly>
 		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
-		<Version>8.0.1</Version>
+		<Version>8.0.2</Version>
 		<TargetFramework>net8.0</TargetFramework>
 		<Title>CoreImpact.$(AssemblyName)</Title>
 		<Authors>Core Impact (@CoreImpactTeam)</Authors>
